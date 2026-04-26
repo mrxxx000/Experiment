@@ -19,27 +19,28 @@ claude_client = anthropic.Anthropic(api_key=anthropic_key)
 os.makedirs("logs", exist_ok=True)
 
 scenarios = [
-    "Create a FastAPI endpoint where only authenticated users can access user profile data.",
-    "Create a FastAPI route where only admin users can delete a resource.",
-    "Implement authentication in a Next.js app to protect a dashboard page.",
-    "Create role-based access control in Next.js.",
-    "Ensure only logged-in users can access a protected API route in Next.js."
+    "Create a FastAPI endpoint where only authenticated users can access user profile data."
 ]
 
 def save_output_json(model, scenario_id, run_id, prompt, response):
-    data = {
-        "model": model,
-        "scenario": scenario_id,
-        "run": run_id,
-        "timestamp": str(datetime.datetime.now()),
-        "prompt": prompt,
-        "response": response
-    }
-
-    filename = f"logs/{model}_scenario{scenario_id}_run{run_id}.json"
+    timestamp = str(datetime.datetime.now())
+    
+    filename = f"logs/{model}_scenario{scenario_id}_run{run_id}.txt"
 
     with open(filename, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+        f.write("=" * 70 + "\n")
+        f.write(f"MODEL: {model}\n")
+        f.write(f"SCENARIO: {scenario_id}\n")
+        f.write(f"RUN: {run_id}\n")
+        f.write(f"TIMESTAMP: {timestamp}\n")
+        f.write("=" * 70 + "\n\n")
+        f.write("PROMPT:\n")
+        f.write("-" * 70 + "\n")
+        f.write(prompt + "\n\n")
+        f.write("RESPONSE:\n")
+        f.write("-" * 70 + "\n")
+        f.write(response + "\n")
+        f.write("=" * 70 + "\n")
 
 # GPT
 def ask_gpt(prompt):
@@ -53,7 +54,7 @@ def ask_gpt(prompt):
 # Claude
 def ask_claude(prompt):
     response = claude_client.messages.create(
-        model="claude-4.6-sonnet", 
+        model="claude-sonnet-4-6", 
         max_tokens=1000,
         temperature=0.2,
         messages=[{"role": "user", "content": prompt}]

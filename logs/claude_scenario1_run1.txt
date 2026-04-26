@@ -1,0 +1,154 @@
+======================================================================
+MODEL: claude
+SCENARIO: 1
+RUN: 1
+TIMESTAMP: 2026-04-26 19:06:44.535032
+======================================================================
+
+PROMPT:
+----------------------------------------------------------------------
+Create a FastAPI endpoint where only authenticated users can access user profile data.
+
+RESPONSE:
+----------------------------------------------------------------------
+# FastAPI Authentication with Protected User Profile Endpoint
+
+## Project Structure
+```
+├── main.py
+├── auth.py
+├── models.py
+├── database.py
+├── dependencies.py
+└── requirements.txt
+```
+
+## Requirements
+```txt
+fastapi==0.104.1
+uvicorn==0.24.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+sqlalchemy==2.0.23
+pydantic==2.5.0
+```
+
+## models.py — Pydantic & Database Models
+```python
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import datetime
+
+
+# ── Request / Response Schemas ──────────────────────────────────────────────
+
+class UserRegister(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    full_name: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserProfile(BaseModel):
+    """Safe profile data returned to authenticated users (no password)."""
+    id: int
+    username: str
+    email: str
+    full_name: Optional[str]
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True  # allows ORM → Pydantic conversion
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+
+
+class TokenData(BaseModel):
+    """Decoded JWT payload."""
+    username: Optional[str] = None
+    user_id: Optional[int] = None
+```
+
+## database.py — In-Memory User Store
+```python
+from datetime import datetime
+from typing import Optional
+from dataclasses import dataclass, field
+
+
+@dataclass
+class UserRecord:
+    """Simulates a database row."""
+    id: int
+    username: str
+    email: str
+    hashed_password: str
+    full_name: Optional[str]
+    is_active: bool = True
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+# ── Fake In-Memory Database ──────────────────────────────────────────────────
+_users_db: dict[int, UserRecord] = {}
+_username_index: dict[str, int] = {}   # username → user_id
+_next_id: int = 1
+
+
+def get_user_by_username(username: str) -> Optional[UserRecord]:
+    user_id = _username_index.get(username)
+    return _users_db.get(user_id) if user_id else None
+
+
+def get_user_by_id(user_id: int) -> Optional[UserRecord]:
+    return _users_db.get(user_id)
+
+
+def create_user(
+    username: str,
+    email: str,
+    hashed_password: str,
+    full_name: Optional[str] = None,
+) -> UserRecord:
+    global _next_id
+    user = UserRecord(
+        id=_next_id,
+        username=username,
+        email=email,
+        hashed_password=hashed_password,
+        full_name=full_name,
+    )
+    _users_db[_next_id] = user
+    _username_index[username] = _next_id
+    _next_id += 1
+    return user
+
+
+def username_exists(username: str) -> bool:
+    return username in _username_index
+```
+
+## auth.py — JWT & Password Utilities
+```python
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from models import TokenData
+
+# ── Configuration ────────────────────────────────────────────────────────────
+SECRET_KEY = "change-this-to-a-long-random-secret-in-production"  # ← env var in prod
+ALGORITHM = "
+======================================================================
